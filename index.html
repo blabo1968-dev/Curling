@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de" class="notranslate" translate="no">
 <head>
     <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Shuffleboard Curling Showdown</title>
     <!-- Tailwind CSS CDN -->
@@ -549,7 +550,7 @@
                 this.stoneRadius = Math.max(11, Math.floor(this.canvas.width * 0.046));
                 this.launchPos = {
                     x: this.canvas.width / 2,
-                    y: this.bounds.bottom - 40
+                    y: this.bounds.bottom - 90
                 };
             }
 
@@ -574,17 +575,28 @@
                 this.gameState = 'AIMING';
                 this.updateUI();
 
-                // If AI turn, trigger automated shoot immediately
+                // If AI turn, trigger automated shoot immediately without delay
                 if (this.vsAI && this.currentTurn === 'blue') {
-                    setTimeout(() => this.triggerAIShoot(), 50);
+                    this.triggerAIShoot();
                 }
             }
 
             setupInputs() {
                 const getPos = (e) => {
                     const rect = this.canvas.getBoundingClientRect();
-                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    let clientX, clientY;
+                    
+                    if (e.touches && e.touches.length > 0) {
+                        clientX = e.touches[0].clientX;
+                        clientY = e.touches[0].clientY;
+                    } else if (e.changedTouches && e.changedTouches.length > 0) {
+                        clientX = e.changedTouches[0].clientX;
+                        clientY = e.changedTouches[0].clientY;
+                    } else {
+                        clientX = e.clientX;
+                        clientY = e.clientY;
+                    }
+
                     return {
                         x: clientX - rect.left,
                         y: clientY - rect.top
@@ -598,10 +610,11 @@
                     const pos = getPos(e);
                     const dist = Math.hypot(pos.x - this.activeStone.x, pos.y - this.activeStone.y);
                     
-                    if (dist < this.stoneRadius * 2.5) {
+                    if (dist < this.stoneRadius * 3.5) { // Leicht vergrößerter Trefferbereich für Finger
                         this.isDragging = true;
                         this.dragStart = pos;
                         this.dragCurrent = pos;
+                        if (e.cancelable) e.preventDefault();
                     }
                 };
 
@@ -610,18 +623,21 @@
 
                     if (this.isDragging) {
                         this.dragCurrent = pos;
+                        if (e.cancelable) e.preventDefault();
                     } else if (this.gameState === 'MOVING') {
                         // Handle Sweeping mechanic
                         this.handleSweeping(pos);
+                        if (e.cancelable) e.preventDefault();
                     }
                 };
 
-                const endHandler = () => {
+                const endHandler = (e) => {
                     if (!this.isDragging) return;
                     this.isDragging = false;
 
-                    const dx = this.dragStart.x - this.dragCurrent.x;
-                    const dy = this.dragStart.y - this.dragCurrent.y;
+                    const pos = getPos(e);
+                    const dx = this.dragStart.x - pos.x;
+                    const dy = this.dragStart.y - pos.y;
                     const pullDist = Math.hypot(dx, dy);
 
                     if (pullDist > 10) {
@@ -646,9 +662,10 @@
                 this.canvas.addEventListener('mousemove', moveHandler);
                 window.addEventListener('mouseup', endHandler);
 
-                this.canvas.addEventListener('touchstart', startHandler, { passive: true });
-                this.canvas.addEventListener('touchmove', moveHandler, { passive: true });
-                window.addEventListener('touchend', endHandler);
+                // Touch Event Listener mit passive: false für e.preventDefault()
+                this.canvas.addEventListener('touchstart', startHandler, { passive: false });
+                this.canvas.addEventListener('touchmove', moveHandler, { passive: false });
+                window.addEventListener('touchend', endHandler, { passive: false });
             }
 
             handleSweeping(pos) {
