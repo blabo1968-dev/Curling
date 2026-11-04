@@ -707,23 +707,25 @@
             triggerAIShoot() {
                 if (!this.activeStone || this.gameState !== 'AIMING') return;
 
-                // Intelligently calculate target position
+                // Taktische Zielberechnung (Statt aggressiv wegzuschießen)
                 let targetX = this.houseCenter.x;
                 let targetY = this.houseCenter.y;
                 let powerFactor = 1.0;
 
-                // Search for opponent red stones in target area to knock out
                 const opponentStones = this.stones.filter(s => s.team === 'red' && !s.outOfBounds);
-                if (opponentStones.length > 0) {
-                    // Target closest opponent stone to center
-                    opponentStones.sort((a, b) => Math.hypot(a.x - this.houseCenter.x, a.y - this.houseCenter.y) - Math.hypot(b.x - this.houseCenter.x, b.y - this.houseCenter.y));
-                    targetX = opponentStones[0].x + (Math.random() - 0.5) * 4;
-                    targetY = opponentStones[0].y + (Math.random() - 0.5) * 4;
-                    powerFactor = 1.25; // Hit harder for knockouts
+                const aiStones = this.stones.filter(s => s.team === 'blue' && !s.outOfBounds);
+
+                // Taktik 1: Wenn Rot im Zentrum (3er-Zone) liegt, nur sanft touchieren oder platzieren
+                if (opponentStones.length > 0 && aiStones.length === 0) {
+                    // Sanfter Plazierungswurf ins Haus (leicht versetzt zielen)
+                    targetX = this.houseCenter.x + (Math.random() < 0.5 ? -15 : 15);
+                    targetY = this.houseCenter.y + (Math.random() - 0.5) * 10;
+                    powerFactor = 0.95; // Etwas langsamer/vorsichtiger werfen
                 } else {
-                    // Draw closer into the inner 3-point circle
-                    targetX += (Math.random() - 0.5) * 12;
-                    targetY += (Math.random() - 0.5) * 12;
+                    // Taktik 2: Taktisch direkt ins Zentrum zielen mit minimaler Streuung
+                    targetX += (Math.random() - 0.5) * 8;
+                    targetY += (Math.random() - 0.5) * 8;
+                    powerFactor = 0.98;
                 }
 
                 const dx = targetX - this.activeStone.x;
@@ -731,8 +733,8 @@
                 const dist = Math.hypot(dx, dy);
                 const angle = Math.atan2(dy, dx);
 
-                // Velocity adjusted for ice friction so stone lands cleanly inside house
-                const reqSpeed = Math.sqrt(2 * (1 - 0.988) * dist) * 1.85 * powerFactor;
+                // Sanfte Geschwindigkeitsberechnung für exaktes Ausrollen im Haus
+                const reqSpeed = Math.sqrt(2 * (1 - 0.988) * dist) * 1.82 * powerFactor;
 
                 this.activeStone.vx = Math.cos(angle) * reqSpeed;
                 this.activeStone.vy = Math.sin(angle) * reqSpeed;
