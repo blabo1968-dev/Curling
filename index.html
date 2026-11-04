@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shuffleboard Curling Showdown</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for dynamic SFX -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            background-color: #0b1329;
+        }
+
+        /* Canvas styling */
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            touch-action: none;
+        }
+
+        /* Custom glow effects */
+        .glow-red {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+        }
+        .glow-blue {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+        }
+        
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        /* Pulsing animations */
+        @keyframes sweepPulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .sweep-hint {
+            animation: sweepPulse 1.2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between items-center text-white overflow-hidden select-none">
+
+    <!-- Top UI Header / Scoreboard (Kompakter & mit Impressum / Regeln) -->
+    <header class="w-full max-w-lg px-2 pt-1 pb-0.5 z-10 flex flex-col gap-1">
+        <!-- Main Title & Legal Nav in single header row -->
+        <div class="flex items-center justify-between px-1">
+            <h1 class="text-xs sm:text-sm font-black tracking-wider uppercase bg-gradient-to-r from-cyan-400 via-blue-200 to-indigo-400 bg-clip-text text-transparent drop-shadow-md">
+                Curling - Blankenhagen
+            </h1>
+
+            <!-- Info, Reset, Sound & Legal Navigation Buttons Top Right -->
+            <div class="flex items-center gap-1.5 text-[10px]">
+                <button id="soundBtn" class="hover:text-cyan-300 transition flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-900/60 border border-slate-700/50 text-slate-200">
+                    <i id="soundIcon" class="fa-solid fa-volume-high text-yellow-400 text-[9px]"></i> Ton
+                </button>
+                <button id="resetBtn" class="hover:text-cyan-300 transition flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-900/60 border border-slate-700/50 text-slate-200">
+                    <i class="fa-solid fa-rotate-right text-emerald-400 text-[9px]"></i> Neu starten
+                </button>
+                <button onclick="openInfoModal('rulesModal')" class="hover:text-cyan-300 transition flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-900/60 border border-slate-700/50 text-slate-200">
+                    <i class="fa-solid fa-book-open text-cyan-400 text-[9px]"></i> Regeln
+                </button>
+                <button onclick="openInfoModal('impressumModal')" class="hover:text-cyan-300 transition flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-900/60 border border-slate-700/50 text-slate-200">
+                    <i class="fa-solid fa-circle-info text-cyan-400 text-[9px]"></i> Impressum
+                </button>
+            </div>
+        </div>
+
+        <!-- Mode Selector Buttons (Extra slim) -->
+        <div class="grid grid-cols-2 gap-1.5">
+            <button id="modePvP" class="py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-cyan-600 text-white border-cyan-400 shadow-md">
+                <i class="fa-solid fa-users text-[10px]"></i> 2 Spieler
+            </button>
+            <button id="modeAI" class="py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700">
+                <i class="fa-solid fa-robot text-[10px]"></i> Gegen KI
+            </button>
+        </div>
+
+        <!-- Compact Scoreboard -->
+        <div class="glass-panel rounded-xl p-1.5 flex justify-between items-center shadow-lg relative overflow-hidden">
+            <!-- Red Team Info -->
+            <div id="redCard" class="flex flex-col items-start transition-all duration-300 p-0.5 rounded-lg border border-transparent">
+                <div class="flex items-center gap-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_6px_#ef4444]"></span>
+                    <span class="font-bold text-xs tracking-wide text-red-300 uppercase" id="redName">ROT</span>
+                </div>
+                <div class="flex items-baseline gap-1.5">
+                    <span class="text-xl font-black text-red-400 leading-none" id="redScore">0</span>
+                    <div id="redStonesLeft" class="flex gap-0.5 text-[9px] text-red-300/80">
+                        <i class="fa-solid fa-circle"></i>
+                        <i class="fa-solid fa-circle"></i>
+                        <i class="fa-solid fa-circle"></i>
+                        <i class="fa-solid fa-circle"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Match Round Info -->
+            <div class="flex flex-col items-center">
+                <span class="text-[9px] uppercase font-semibold text-slate-400 tracking-wider">Runde</span>
+                <span class="text-base font-extrabold text-cyan-300 leading-none" id="roundDisplay">1 / 10</span>
+                <span id="turnIndicator" class="mt-0.5 text-[9px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-medium">
+                    ROT IST DRAN
+                </span>
+            </div>
+
+            <!-- Blue Team Info -->
+            <div id="blueCard" class="flex flex-col items-end transition-all duration-300 p-0.5 rounded-lg border border-transparent">
+                <div class="flex items-center gap-1">
+                    <span class="font-bold text-xs tracking-wide text-blue-300 uppercase" id="blueName">BLAU</span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_6px_#3b82f6]"></span>
+                </div>
+                <div class="flex items-baseline gap-1.5">
+                    <div id="blueStonesLeft" class="flex gap-0.5 text-[9px] text-blue-300/80">
+                        <i class="fa-solid fa-circle"></i>
+                        <i class="fa-solid fa-circle"></i>
+                        <i class="fa-solid fa-circle"></i>
+                        <i class="fa-solid fa-circle"></i>
+                    </div>
+                    <span class="text-xl font-black text-blue-400 leading-none" id="blueScore">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Canvas Container (Takes at least 3/4 of the viewport height) -->
+    <main class="relative flex-1 w-full max-w-2xl flex items-center justify-center p-1">
+        <canvas id="gameCanvas" class="rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.8)] border border-slate-700/50 h-[80vh] max-h-[84vh] w-auto"></canvas>
+
+        <!-- Sweeping Visual Prompt Overlay -->
+        <div id="sweepPrompt" class="hidden absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none sweep-hint bg-cyan-500/30 backdrop-blur-md border border-cyan-400/50 text-cyan-200 text-[10px] px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg">
+            <i class="fa-solid fa-broom text-yellow-300"></i>
+            <span>SCHNELL VOR DEM STEIN WISCHEN!</span>
+        </div>
+    </main>
+
+    <!-- Game Over / End Round Modal -->
+    <div id="modalOverlay" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center z-50 p-4">
+        <div class="glass-panel rounded-3xl p-6 max-w-sm w-full text-center border border-slate-700 shadow-2xl relative overflow-hidden">
+            <div class="w-16 h-16 bg-gradient-to-tr from-yellow-500 to-amber-300 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg text-slate-950 text-2xl">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            
+            <h2 id="modalTitle" class="text-2xl font-black text-white tracking-wide">MATCH FINISHED</h2>
+            <p id="modalSubtitle" class="text-slate-300 text-sm mt-1">Red Team Wins!</p>
+
+            <!-- Final Score Board -->
+            <div class="my-5 bg-slate-900/60 rounded-xl p-3 flex justify-around items-center border border-slate-800">
+                <div class="text-center">
+                    <p class="text-xs text-red-400 font-bold uppercase">Red</p>
+                    <p id="finalRedScore" class="text-3xl font-black text-white">0</p>
+                </div>
+                <div class="text-slate-600 font-bold">VS</div>
+                <div class="text-center">
+                    <p class="text-xs text-blue-400 font-bold uppercase">Blue</p>
+                    <p id="finalBlueScore" class="text-3xl font-black text-white">0</p>
+                </div>
+            </div>
+
+            <button id="modalActionBtn" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg transition active:scale-95">
+                Play Next Round
+            </button>
+        </div>
+    </div>
+
+    <!-- SPIELREGELN MODAL -->
+    <div id="rulesModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center z-50 p-4">
+        <div class="glass-panel rounded-3xl p-5 max-w-sm w-full border border-slate-700 shadow-2xl relative max-h-[85vh] overflow-y-auto text-left">
+            <button onclick="closeInfoModal('rulesModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-xl font-black text-cyan-300 flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-book-open"></i> Spielregeln
+            </h2>
+            <div class="space-y-3 text-xs text-slate-200 leading-relaxed">
+                <div>
+                    <h3 class="font-bold text-white mb-0.5">🎯 Ziel des Spiels</h3>
+                    <p>Bringe deine Curling-Steine in die Punkte-Ringe (House) am oberen Feldende. Wer nach 10 Runden die meisten Punkte hat, gewinnt!</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white mb-0.5">🥌 Stein werfen</h3>
+                    <p>Ziehe deinen Stein nach unten zurück, um Richtung und Stärke festzulegen, und lasse dann los.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white mb-0.5">🧹 Wischen / Fegen (Sweeping)</h3>
+                    <p>Wische schnell vor einem rollenden Stein hin und her, um das Eis zu polieren. Dadurch verringert sich die Reibung und der Stein gleitet weiter!</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white mb-0.5">📊 Punktewertung</h3>
+                    <ul class="list-disc list-inside space-y-0.5 text-slate-300 pl-1">
+                        <li>Insel / Zentrum (Rot): <strong>3 Punkte</strong></li>
+                        <li>Mittlerer Ring (Weiß): <strong>2 Punkte</strong></li>
+                        <li>Äußerer Ring (Blau): <strong>1 Punkt</strong></li>
+                    </ul>
+                </div>
+            </div>
+            <button onclick="closeInfoModal('rulesModal')" class="w-full mt-4 py-2 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl text-xs text-slate-200 transition">
+                Schließen
+            </button>
+        </div>
+    </div>
+
+    <!-- IMPRESSUM MODAL -->
+    <div id="impressumModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center z-50 p-4">
+        <div class="glass-panel rounded-3xl p-5 max-w-sm w-full border border-slate-700 shadow-2xl relative max-h-[85vh] overflow-y-auto text-left">
+            <button onclick="closeInfoModal('impressumModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-xl font-black text-cyan-300 flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-circle-info"></i> Impressum
+            </h2>
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <div>
+                    <h3 class="font-bold text-white text-sm">Blankenhagen Spieleentwicklung</h3>
+                    <p>Inhaber: Jörg Blankenhagen</p>
+                    <p>Kanalstraße 31</p>
+                    <p>73614 Schorndorf</p>
+                </div>
+                <div>
+                    <p><strong class="text-white">E-Mail:</strong> spieleentwicklung@freenet.de</p>
+                </div>
+                <div>
+                    <p><strong class="text-white">Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV:</strong></p>
+                    <p>Jörg Blankenhagen, Kanalstraße 31, 73614 Schorndorf</p>
+                </div>
+                <div class="pt-2 border-t border-slate-700/60 text-[11px] text-slate-400 italic">
+                    Dieser Text/Dieses Bild/Dieses Video/Dieses Spiel wurde unter Zuhilfenahme einer Künstlichen Intelligenz erstellt und von einem Menschen überprüft.
+                </div>
+            </div>
+            <button onclick="closeInfoModal('impressumModal')" class="w-full mt-4 py-2 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl text-xs text-slate-200 transition">
+                Schließen
+            </button>
+        </div>
+    </div>
+
+    <!-- DATENSCHUTZ MODAL -->
+    <div id="privacyModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center z-50 p-4">
+        <div class="glass-panel rounded-3xl p-5 max-w-sm w-full border border-slate-700 shadow-2xl relative max-h-[85vh] overflow-y-auto text-left">
+            <button onclick="closeInfoModal('privacyModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-xl font-black text-cyan-300 flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-shield-halved"></i> Datenschutzerklärung
+            </h2>
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <p>
+                    Diese Anwendung läuft vollständig clientseitig in Ihrem Webbrowser. Es werden <strong>keine personenbezogenen Daten</strong> erhoben, gespeichert oder an externe Server übertragen.
+                </p>
+                <div>
+                    <h3 class="font-bold text-white mb-0.5">Lokale Verarbeitung</h3>
+                    <p>Alle Spielmechaniken, Eingaben und Punktestände werden ausschließlich lokal im Arbeitsspeicher Ihres Endgeräts verarbeitet.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-white mb-0.5">Cookies & Tracking</h3>
+                    <p>Es kommen keine Tracking-Tools, Analysedienste oder Cookies von Drittanbietern zum Einsatz.</p>
+                </div>
+                <div class="pt-2 border-t border-slate-700/60 text-[11px] text-slate-400 italic">
+                    Dieser Text/Dieses Bild/Dieses Video/Dieses Spiel wurde unter Zuhilfenahme einer Künstlichen Intelligenz erstellt und von einem Menschen überprüft.
+                </div>
+            </div>
+            <button onclick="closeInfoModal('privacyModal')" class="w-full mt-4 py-2 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl text-xs text-slate-200 transition">
+                Schließen
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Game Logic -->
+    <script>
+        // Info Modal Helpers
+        function openInfoModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeInfoModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // Sound System using Web Audio API / Tone.js
+        class AudioSystem {
+            constructor() {
+                this.enabled = true;
+                this.synth = null;
+                this.initAudio();
+            }
+
+            initAudio() {
+                try {
+                    this.synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                    this.synth.volume.value = -12;
+                } catch (e) {
+                    console.log("Audio init fallback", e);
+                }
+            }
+
+            playImpact(volume = 1) {
+                if (!this.enabled) return;
+                try {
+                    if (Tone.context.state !== 'running') Tone.start();
+                    const toneSynth = new Tone.MembraneSynth().toDestination();
+                    toneSynth.volume.value = -10 * (1 - volume);
+                    toneSynth.triggerAttackRelease("C2", "8n");
+                } catch (e) {}
+            }
+
+            playSweep() {
+                if (!this.enabled) return;
+                try {
+                    if (Tone.context.state !== 'running') Tone.start();
+                    const noise = new Tone.NoiseSynth({
+                        noise: { type: 'white' },
+                        envelope: { attack: 0.005, decay: 0.05, sustain: 0 }
+                    }).toDestination();
+                    noise.volume.value = -22;
+                    noise.triggerAttackRelease("16n");
+                } catch (e) {}
+            }
+
+            playScore() {
+                if (!this.enabled || !this.synth) return;
+                try {
+                    if (Tone.context.state !== 'running') Tone.start();
+                    this.synth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n");
+                } catch (e) {}
+            }
+        }
+
+        const sound = new AudioSystem();
+
+        // Stone Class definition
+        class Stone {
+            constructor(x, y, radius, color, team) {
+                this.x = x;
+                this.y = y;
+                this.startX = x;
+                this.startY = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.radius = radius;
+                this.color = color; // 'red' or 'blue'
+                this.team = team;
+                this.isLaunched = false;
+                this.isStopped = false;
+                this.outOfBounds = false;
+                this.friction = 0.988; // Base ice friction
+            }
+
+            update(bounds) {
+                if (!this.isLaunched || this.isStopped) return;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Friction slowing down velocity
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+
+                // Stop condition
+                const speed = Math.hypot(this.vx, this.vy);
+                if (speed < 0.04) {
+                    this.vx = 0;
+                    this.vy = 0;
+                    this.isStopped = true;
+                }
+
+                // Off-bounds check (No bounce / No borders)
+                if (this.x - this.radius < bounds.left || 
+                    this.x + this.radius > bounds.right || 
+                    this.y - this.radius < bounds.top || 
+                    this.y > bounds.bottom + 50) {
+                    this.outOfBounds = true;
+                    this.isStopped = true;
+                }
+            }
+
+            draw(ctx) {
+                if (this.outOfBounds) return;
+
+                ctx.save();
+                // Shadow
+                ctx.beginPath();
+                ctx.arc(this.x + 3, this.y + 4, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+                ctx.fill();
+
+                // Outer Granite Body
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                const bodyGrad = ctx.createRadialGradient(
+                    this.x - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.1,
+                    this.x, this.y, this.radius
+                );
+                bodyGrad.addColorStop(0, '#e2e8f0');
+                bodyGrad.addColorStop(0.7, '#94a3b8');
+                bodyGrad.addColorStop(1, '#475569');
+                ctx.fillStyle = bodyGrad;
+                ctx.fill();
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = '#334155';
+                ctx.stroke();
+
+                // Colored Handle Cap
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.58, 0, Math.PI * 2);
+                ctx.fillStyle = this.color === 'red' ? '#ef4444' : '#3b82f6';
+                ctx.fill();
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = this.color === 'red' ? '#b91c1c' : '#1d4ed8';
+                ctx.stroke();
+
+                // Center Grip Handle Line
+                ctx.beginPath();
+                ctx.roundRect(this.x - this.radius * 0.4, this.y - 3, this.radius * 0.8, 6, 3);
+                ctx.fillStyle = '#f8fafc';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        // Particle FX for Sweeping
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.radius = Math.random() * 2.5 + 1;
+                this.alpha = 1;
+                this.life = 0;
+                this.maxLife = Math.random() * 20 + 10;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life++;
+                this.alpha = 1 - (this.life / this.maxLife);
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#bae6fd';
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Core Game Engine
+        class GameEngine {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                
+                this.vsAI = false;
+                this.currentRound = 1;
+                this.maxRounds = 10;
+                this.redScore = 0;
+                this.blueScore = 0;
+
+                this.currentTurn = 'red'; // 'red' or 'blue'
+                this.stones = [];
+                this.activeStone = null;
+                
+                this.redStonesLeft = 4;
+                this.blueStonesLeft = 4;
+
+                this.isDragging = false;
+                this.dragStart = { x: 0, y: 0 };
+                this.dragCurrent = { x: 0, y: 0 };
+
+                this.particles = [];
+                this.lastSweepPos = null;
+                this.sweepTimeout = null;
+
+                this.gameState = 'AIMING'; // AIMING, MOVING, ROUND_OVER, GAME_OVER
+
+                this.initLayout();
+                this.setupInputs();
+                this.resetRound();
+            }
+
+            initLayout() {
+                // Optimized mobile responsive canvas layout
+                const container = this.canvas.parentElement;
+                const availableW = container ? container.clientWidth - 12 : window.innerWidth - 12;
+                
+                // Dynamisch verfügbare Höhe abzüglich des kompakten Headers berechnen
+                const headerHeight = document.querySelector('header') ? document.querySelector('header').offsetHeight : 120;
+                const availableH = Math.max(360, window.innerHeight - headerHeight - 16);
+
+                let height = availableH;
+                let width = height / 1.7; // Leicht schlankeres Seitenverhältnis für perfekte Handy-Passform
+
+                if (width > availableW) {
+                    width = availableW;
+                    height = width * 1.7;
+                }
+
+                this.canvas.width = Math.max(260, Math.floor(width));
+                this.canvas.height = Math.max(420, Math.floor(height));
+
+                this.bounds = {
+                    left: 12,
+                    right: this.canvas.width - 12,
+                    top: 12,
+                    bottom: this.canvas.height - 12
+                };
+
+                // Curling Target / House Center
+                this.houseCenter = {
+                    x: this.canvas.width / 2,
+                    y: this.bounds.top + (this.canvas.height * 0.22)
+                };
+
+                const baseRadius = Math.min(this.canvas.width, this.canvas.height);
+                this.houseRings = [
+                    { radius: baseRadius * 0.24, points: 1, color: '#3b82f6' }, // Blue outer
+                    { radius: baseRadius * 0.16, points: 2, color: '#ffffff' },  // White middle
+                    { radius: baseRadius * 0.08, points: 3, color: '#ef4444' }   // Red inner
+                ];
+
+                this.stoneRadius = Math.max(11, Math.floor(this.canvas.width * 0.046));
+                this.launchPos = {
+                    x: this.canvas.width / 2,
+                    y: this.bounds.bottom - 40
+                };
+            }
+
+            spawnNextStone() {
+                if (this.redStonesLeft === 0 && this.blueStonesLeft === 0) {
+                    this.finishRound();
+                    return;
+                }
+
+                if (this.currentTurn === 'red' && this.redStonesLeft > 0) {
+                    this.activeStone = new Stone(this.launchPos.x, this.launchPos.y, this.stoneRadius, 'red', 'red');
+                } else if (this.currentTurn === 'blue' && this.blueStonesLeft > 0) {
+                    this.activeStone = new Stone(this.launchPos.x, this.launchPos.y, this.stoneRadius, 'blue', 'blue');
+                } else {
+                    // Turn fallback if one team has no stones left
+                    this.currentTurn = this.currentTurn === 'red' ? 'blue' : 'red';
+                    this.spawnNextStone();
+                    return;
+                }
+
+                this.stones.push(this.activeStone);
+                this.gameState = 'AIMING';
+                this.updateUI();
+
+                // If AI turn, trigger automated shoot immediately
+                if (this.vsAI && this.currentTurn === 'blue') {
+                    setTimeout(() => this.triggerAIShoot(), 50);
+                }
+            }
+
+            setupInputs() {
+                const getPos = (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    return {
+                        x: clientX - rect.left,
+                        y: clientY - rect.top
+                    };
+                };
+
+                const startHandler = (e) => {
+                    if (this.gameState !== 'AIMING' || !this.activeStone) return;
+                    if (this.vsAI && this.currentTurn === 'blue') return;
+
+                    const pos = getPos(e);
+                    const dist = Math.hypot(pos.x - this.activeStone.x, pos.y - this.activeStone.y);
+                    
+                    if (dist < this.stoneRadius * 2.5) {
+                        this.isDragging = true;
+                        this.dragStart = pos;
+                        this.dragCurrent = pos;
+                    }
+                };
+
+                const moveHandler = (e) => {
+                    const pos = getPos(e);
+
+                    if (this.isDragging) {
+                        this.dragCurrent = pos;
+                    } else if (this.gameState === 'MOVING') {
+                        // Handle Sweeping mechanic
+                        this.handleSweeping(pos);
+                    }
+                };
+
+                const endHandler = () => {
+                    if (!this.isDragging) return;
+                    this.isDragging = false;
+
+                    const dx = this.dragStart.x - this.dragCurrent.x;
+                    const dy = this.dragStart.y - this.dragCurrent.y;
+                    const pullDist = Math.hypot(dx, dy);
+
+                    if (pullDist > 10) {
+                        // Forward flick/drag launches stone forward towards house
+                        const power = Math.min(pullDist * 0.045, 14);
+                        const angle = Math.atan2(-dy, -dx); // Directed upwards to the target rings
+
+                        this.activeStone.vx = Math.cos(angle) * power;
+                        this.activeStone.vy = Math.sin(angle) * power;
+                        this.activeStone.isLaunched = true;
+
+                        if (this.currentTurn === 'red') this.redStonesLeft--;
+                        else this.blueStonesLeft--;
+
+                        this.gameState = 'MOVING';
+                        this.showSweepPrompt(true);
+                        sound.playImpact(0.5);
+                    }
+                };
+
+                this.canvas.addEventListener('mousedown', startHandler);
+                this.canvas.addEventListener('mousemove', moveHandler);
+                window.addEventListener('mouseup', endHandler);
+
+                this.canvas.addEventListener('touchstart', startHandler, { passive: true });
+                this.canvas.addEventListener('touchmove', moveHandler, { passive: true });
+                window.addEventListener('touchend', endHandler);
+            }
+
+            handleSweeping(pos) {
+                // Find moving stones ahead of which sweeping can occur
+                const movingStone = this.stones.find(s => s.isLaunched && !s.isStopped && !s.outOfBounds);
+                if (!movingStone) return;
+
+                if (this.lastSweepPos) {
+                    const distMoved = Math.hypot(pos.x - this.lastSweepPos.x, pos.y - this.lastSweepPos.y);
+                    const distToStone = Math.hypot(pos.x - movingStone.x, pos.y - movingStone.y);
+
+                    // Sweeping in front of moving stone
+                    if (distMoved > 8 && distToStone < this.stoneRadius * 4 && pos.y < movingStone.y) {
+                        movingStone.friction = 0.995; // Reduce friction temporarily
+                        sound.playSweep();
+
+                        // Particle FX
+                        for (let i = 0; i < 2; i++) {
+                            this.particles.push(new Particle(pos.x + (Math.random() - 0.5) * 20, pos.y + (Math.random() - 0.5) * 10));
+                        }
+
+                        clearTimeout(this.sweepTimeout);
+                        this.sweepTimeout = setTimeout(() => {
+                            movingStone.friction = 0.988; // Restore ice friction
+                        }, 120);
+                    }
+                }
+                this.lastSweepPos = pos;
+            }
+
+            showSweepPrompt(show) {
+                const prompt = document.getElementById('sweepPrompt');
+                if (prompt) {
+                    if (show) prompt.classList.remove('hidden');
+                    else prompt.classList.add('hidden');
+                }
+            }
+
+            triggerAIShoot() {
+                if (!this.activeStone || this.gameState !== 'AIMING') return;
+
+                // Intelligently calculate target position
+                let targetX = this.houseCenter.x;
+                let targetY = this.houseCenter.y;
+                let powerFactor = 1.0;
+
+                // Search for opponent red stones in target area to knock out
+                const opponentStones = this.stones.filter(s => s.team === 'red' && !s.outOfBounds);
+                if (opponentStones.length > 0) {
+                    // Target closest opponent stone to center
+                    opponentStones.sort((a, b) => Math.hypot(a.x - this.houseCenter.x, a.y - this.houseCenter.y) - Math.hypot(b.x - this.houseCenter.x, b.y - this.houseCenter.y));
+                    targetX = opponentStones[0].x + (Math.random() - 0.5) * 4;
+                    targetY = opponentStones[0].y + (Math.random() - 0.5) * 4;
+                    powerFactor = 1.25; // Hit harder for knockouts
+                } else {
+                    // Draw closer into the inner 3-point circle
+                    targetX += (Math.random() - 0.5) * 12;
+                    targetY += (Math.random() - 0.5) * 12;
+                }
+
+                const dx = targetX - this.activeStone.x;
+                const dy = targetY - this.activeStone.y;
+                const dist = Math.hypot(dx, dy);
+                const angle = Math.atan2(dy, dx);
+
+                // Velocity adjusted for ice friction so stone lands cleanly inside house
+                const reqSpeed = Math.sqrt(2 * (1 - 0.988) * dist) * 1.85 * powerFactor;
+
+                this.activeStone.vx = Math.cos(angle) * reqSpeed;
+                this.activeStone.vy = Math.sin(angle) * reqSpeed;
+                this.activeStone.isLaunched = true;
+
+                this.blueStonesLeft--;
+                this.gameState = 'MOVING';
+                sound.playImpact(0.4);
+            }
+
+            checkCollisions() {
+                for (let i = 0; i < this.stones.length; i++) {
+                    for (let j = i + 1; j < this.stones.length; j++) {
+                        const s1 = this.stones[i];
+                        const s2 = this.stones[j];
+
+                        if (s1.outOfBounds || s2.outOfBounds) continue;
+
+                        const dx = s2.x - s1.x;
+                        const dy = s2.y - s1.y;
+                        const dist = Math.hypot(dx, dy);
+                        const minDist = s1.radius + s2.radius;
+
+                        if (dist < minDist) {
+                            // Elastic circle collision physics
+                            const angle = Math.atan2(dy, dx);
+                            const sin = Math.sin(angle);
+                            const cos = Math.cos(angle);
+
+                            // Rotate velocities
+                            let vx1 = s1.vx * cos + s1.vy * sin;
+                            let vy1 = s1.vy * cos - s1.vx * sin;
+                            let vx2 = s2.vx * cos + s2.vy * sin;
+                            let vy2 = s2.vy * cos - s2.vx * sin;
+
+                            // Swap velocity along collision axis
+                            const temp = vx1;
+                            vx1 = vx2;
+                            vx2 = temp;
+
+                            // Separate overlapping stones
+                            const overlap = (minDist - dist) / 2;
+                            s1.x -= cos * overlap;
+                            s1.y -= sin * overlap;
+                            s2.x += cos * overlap;
+                            s2.y += sin * overlap;
+
+                            // Re-rotate velocities back
+                            s1.vx = vx1 * cos - vy1 * sin;
+                            s1.vy = vy1 * cos + vx1 * sin;
+                            s2.vx = vx2 * cos - vy2 * sin;
+                            s2.vy = vy2 * cos + vx2 * sin;
+
+                            s1.isStopped = false;
+                            s2.isStopped = false;
+
+                            sound.playImpact(Math.min(Math.hypot(s1.vx, s1.vy) * 0.2, 1));
+                        }
+                    }
+                }
+            }
+
+            update() {
+                // Update stone movement
+                this.stones.forEach(s => s.update(this.bounds));
+
+                // Check elastic collisions
+                this.checkCollisions();
+
+                // Particle update
+                this.particles.forEach((p, index) => {
+                    p.update();
+                    if (p.life >= p.maxLife) this.particles.splice(index, 1);
+                });
+
+                // Turn progression check when moving
+                if (this.gameState === 'MOVING') {
+                    const anyMoving = this.stones.some(s => s.isLaunched && !s.isStopped && !s.outOfBounds);
+
+                    if (!anyMoving) {
+                        this.showSweepPrompt(false);
+                        this.currentTurn = this.currentTurn === 'red' ? 'blue' : 'red';
+                        this.spawnNextStone();
+                    }
+                }
+            }
+
+            calculateHouseScores() {
+                let roundRed = 0;
+                let roundBlue = 0;
+
+                this.stones.forEach(stone => {
+                    if (stone.outOfBounds) return;
+
+                    const distToCenter = Math.hypot(stone.x - this.houseCenter.x, stone.y - this.houseCenter.y);
+                    
+                    // Award score according to target ring radius
+                    for (const ring of [...this.houseRings].sort((a, b) => a.radius - b.radius)) {
+                        if (distToCenter <= ring.radius) {
+                            if (stone.team === 'red') roundRed += ring.points;
+                            else roundBlue += ring.points;
+                            break;
+                        }
+                    }
+                });
+
+                return { red: roundRed, blue: roundBlue };
+            }
+
+            finishRound() {
+                this.gameState = 'ROUND_OVER';
+                const scores = this.calculateHouseScores();
+
+                this.redScore += scores.red;
+                this.blueScore += scores.blue;
+
+                this.updateUI();
+                sound.playScore();
+
+                const modal = document.getElementById('modalOverlay');
+                const title = document.getElementById('modalTitle');
+                const subtitle = document.getElementById('modalSubtitle');
+                const btn = document.getElementById('modalActionBtn');
+
+                document.getElementById('finalRedScore').innerText = this.redScore;
+                document.getElementById('finalBlueScore').innerText = this.blueScore;
+
+                if (this.currentRound >= this.maxRounds) {
+                    this.gameState = 'GAME_OVER';
+                    title.innerText = 'SPIEL BEENDET';
+
+                    if (this.redScore > this.blueScore) {
+                        subtitle.innerText = '🏆 ROT GEWINNT DAS MATCH!';
+                    } else if (this.blueScore > this.redScore) {
+                        subtitle.innerText = '🏆 BLAU GEWINNT DAS MATCH!';
+                    } else {
+                        subtitle.innerText = '🤝 UNENTSCHIEDEN!';
+                    }
+
+                    btn.innerText = 'Neues Spiel starten';
+                    btn.onclick = () => {
+                        modal.classList.add('hidden');
+                        this.fullReset();
+                    };
+                } else {
+                    title.innerText = `RUNDE ${this.currentRound} BEENDET`;
+                    subtitle.innerText = `Rot +${scores.red} | Blau +${scores.blue}`;
+
+                    btn.innerText = 'Nächste Runde';
+                    btn.onclick = () => {
+                        modal.classList.add('hidden');
+                        this.currentRound++;
+                        this.resetRound();
+                    };
+                }
+
+                modal.classList.remove('hidden');
+            }
+
+            resetRound() {
+                this.stones = [];
+                this.redStonesLeft = 4;
+                this.blueStonesLeft = 4;
+                this.currentTurn = 'red';
+                this.spawnNextStone();
+                this.updateUI();
+            }
+
+            fullReset() {
+                this.currentRound = 1;
+                this.redScore = 0;
+                this.blueScore = 0;
+                this.resetRound();
+            }
+
+            updateUI() {
+                document.getElementById('redScore').innerText = this.redScore;
+                document.getElementById('blueScore').innerText = this.blueScore;
+                document.getElementById('roundDisplay').innerText = `${this.currentRound} / ${this.maxRounds}`;
+
+                const turnEl = document.getElementById('turnIndicator');
+                if (turnEl) {
+                    if (this.currentTurn === 'red') {
+                        turnEl.innerText = 'ROT IST DRAN';
+                        turnEl.className = 'mt-0.5 text-[9px] px-1.5 py-0.2 rounded-full bg-red-950 text-red-300 border border-red-700 font-medium';
+                    } else {
+                        turnEl.innerText = this.vsAI ? 'KI DENKT...' : 'BLAU IST DRAN';
+                        turnEl.className = 'mt-0.5 text-[9px] px-1.5 py-0.2 rounded-full bg-blue-950 text-blue-300 border border-blue-700 font-medium';
+                    }
+                }
+
+                // Render remaining stones icons
+                const renderStonesCount = (containerId, count, colorClass) => {
+                    const el = document.getElementById(containerId);
+                    if (!el) return;
+                    el.innerHTML = '';
+                    for (let i = 0; i < count; i++) {
+                        el.innerHTML += `<i class="fa-solid fa-circle ${colorClass}"></i>`;
+                    }
+                };
+
+                renderStonesCount('redStonesLeft', this.redStonesLeft, 'text-red-400');
+                renderStonesCount('blueStonesLeft', this.blueStonesLeft, 'text-blue-400');
+            }
+
+            drawRink() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Ice Rink Surface Gradient
+                const iceGrad = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+                iceGrad.addColorStop(0, '#0f1d3a');
+                iceGrad.addColorStop(0.5, '#1e293b');
+                iceGrad.addColorStop(1, '#0f172a');
+                ctx.fillStyle = iceGrad;
+                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Ice Texture Overlay Lines
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.lineWidth = 1;
+                for (let y = 0; y < this.canvas.height; y += 15) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(this.canvas.width, y);
+                    ctx.stroke();
+                }
+
+                // Center Line
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.35)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.canvas.width / 2, 0);
+                ctx.lineTo(this.canvas.width / 2, this.canvas.height);
+                ctx.stroke();
+
+                // Hog Line
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(this.bounds.left, this.bounds.bottom - 90);
+                ctx.lineTo(this.bounds.right, this.bounds.bottom - 90);
+                ctx.stroke();
+
+                // House Target Concentric Rings
+                this.houseRings.forEach(ring => {
+                    ctx.beginPath();
+                    ctx.arc(this.houseCenter.x, this.houseCenter.y, ring.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = ring.color;
+                    ctx.globalAlpha = 0.35;
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                    ctx.strokeStyle = ring.color;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+
+                // Center Button Dot
+                ctx.beginPath();
+                ctx.arc(this.houseCenter.x, this.houseCenter.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+            }
+
+            draw() {
+                this.drawRink();
+
+                // Draw Sweeping Particles
+                this.particles.forEach(p => p.draw(this.ctx));
+
+                // Draw Curling Stones
+                this.stones.forEach(stone => stone.draw(this.ctx));
+            }
+
+            gameLoop() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+
+        // Window Init Execution
+        window.addEventListener('load', () => {
+            const canvas = document.getElementById('gameCanvas');
+            const game = new GameEngine(canvas);
+
+            // Responsive Window Resize Handler
+            window.addEventListener('resize', () => {
+                game.initLayout();
+            });
+
+            // Start Animation Frame Loop
+            game.gameLoop();
+
+            // Setup Mode Buttons
+            const modePvP = document.getElementById('modePvP');
+            const modeAI = document.getElementById('modeAI');
+
+            modePvP.addEventListener('click', () => {
+                game.vsAI = false;
+                modePvP.className = 'py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-cyan-600 text-white border-cyan-400 shadow-md';
+                modeAI.className = 'py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700';
+                document.getElementById('blueName').innerText = 'BLAU';
+                game.fullReset();
+            });
+
+            modeAI.addEventListener('click', () => {
+                game.vsAI = true;
+                modeAI.className = 'py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-cyan-600 text-white border-cyan-400 shadow-md';
+                modePvP.className = 'py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700';
+                document.getElementById('blueName').innerText = 'KI';
+                game.fullReset();
+            });
+
+            // Reset Button Handler
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                game.fullReset();
+            });
+
+            // Sound Toggle Handler
+            document.getElementById('soundBtn').addEventListener('click', () => {
+                sound.enabled = !sound.enabled;
+                const soundIcon = document.getElementById('soundIcon');
+                if (sound.enabled) {
+                    soundIcon.className = 'fa-solid fa-volume-high text-yellow-400 text-[9px]';
+                } else {
+                    soundIcon.className = 'fa-solid fa-volume-xmark text-slate-500 text-[9px]';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
