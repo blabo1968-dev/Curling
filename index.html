@@ -61,7 +61,7 @@
 </head>
 <body class="w-screen h-screen flex flex-col justify-between items-center text-white overflow-hidden select-none">
 
-    <!-- Top UI Header / Scoreboard (Kompakter & mit Impressum / Regeln) -->
+    <!-- Top UI Header / Scoreboard -->
     <header class="w-full max-w-lg px-2 pt-1 pb-0.5 z-10 flex flex-col gap-1">
         <!-- Main Title & Legal Nav in single header row -->
         <div class="flex items-center justify-between px-1">
@@ -86,7 +86,7 @@
             </div>
         </div>
 
-        <!-- Mode Selector Buttons (Extra slim) -->
+        <!-- Mode Selector Buttons -->
         <div class="grid grid-cols-2 gap-1.5">
             <button id="modePvP" class="py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-cyan-600 text-white border-cyan-400 shadow-md">
                 <i class="fa-solid fa-users text-[10px]"></i> 2 Spieler
@@ -143,7 +143,7 @@
         </div>
     </header>
 
-    <!-- Main Game Canvas Container (Takes at least 3/4 of the viewport height) -->
+    <!-- Main Game Canvas Container -->
     <main class="relative flex-1 w-full max-w-2xl flex items-center justify-center p-1">
         <canvas id="gameCanvas" class="rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.8)] border border-slate-700/50 h-[80vh] max-h-[84vh] w-auto"></canvas>
 
@@ -198,8 +198,12 @@
                     <p>Bringe deine Curling-Steine in die Punkte-Ringe (House) am oberen Feldende. Wer nach 10 Runden die meisten Punkte hat, gewinnt!</p>
                 </div>
                 <div>
+                    <h3 class="font-bold text-white mb-0.5">🔨 Recht des letzten Steins (Hammer)</h3>
+                    <p>Das Recht, den allerletzten Stein einer Runde zu werfen (der Hammer), wechselt nach jedem Ende automatisch zum anderen Team!</p>
+                </div>
+                <div>
                     <h3 class="font-bold text-white mb-0.5">🥌 Stein werfen</h3>
-                    <p>Ziehe deinen Stein nach unten zurück, um Richtung und Stärke festzulegen, und lasse dann los.</p>
+                    <p>Der Stein wird mit dem Finger oder der Maus angeschoben: Ziehe ihn nach unten zurück, um Richtung und Stärke festzulegen, und lasse ihn dann los.</p>
                 </div>
                 <div>
                     <h3 class="font-bold text-white mb-0.5">🧹 Wischen / Fegen (Sweeping)</h3>
@@ -248,37 +252,6 @@
                 </div>
             </div>
             <button onclick="closeInfoModal('impressumModal')" class="w-full mt-4 py-2 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl text-xs text-slate-200 transition">
-                Schließen
-            </button>
-        </div>
-    </div>
-
-    <!-- DATENSCHUTZ MODAL -->
-    <div id="privacyModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center z-50 p-4">
-        <div class="glass-panel rounded-3xl p-5 max-w-sm w-full border border-slate-700 shadow-2xl relative max-h-[85vh] overflow-y-auto text-left">
-            <button onclick="closeInfoModal('privacyModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg p-1">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-            <h2 class="text-xl font-black text-cyan-300 flex items-center gap-2 mb-3">
-                <i class="fa-solid fa-shield-halved"></i> Datenschutzerklärung
-            </h2>
-            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
-                <p>
-                    Diese Anwendung läuft vollständig clientseitig in Ihrem Webbrowser. Es werden <strong>keine personenbezogenen Daten</strong> erhoben, gespeichert oder an externe Server übertragen.
-                </p>
-                <div>
-                    <h3 class="font-bold text-white mb-0.5">Lokale Verarbeitung</h3>
-                    <p>Alle Spielmechaniken, Eingaben und Punktestände werden ausschließlich lokal im Arbeitsspeicher Ihres Endgeräts verarbeitet.</p>
-                </div>
-                <div>
-                    <h3 class="font-bold text-white mb-0.5">Cookies & Tracking</h3>
-                    <p>Es kommen keine Tracking-Tools, Analysedienste oder Cookies von Drittanbietern zum Einsatz.</p>
-                </div>
-                <div class="pt-2 border-t border-slate-700/60 text-[11px] text-slate-400 italic">
-                    Dieser Text/Dieses Bild/Dieses Video/Dieses Spiel wurde unter Zuhilfenahme einer Künstlichen Intelligenz erstellt und von einem Menschen überprüft.
-                </div>
-            </div>
-            <button onclick="closeInfoModal('privacyModal')" class="w-full mt-4 py-2 bg-slate-800 hover:bg-slate-700 font-bold rounded-xl text-xs text-slate-200 transition">
                 Schließen
             </button>
         </div>
@@ -485,7 +458,8 @@
                 this.redScore = 0;
                 this.blueScore = 0;
 
-                this.currentTurn = 'red'; // 'red' or 'blue'
+                this.roundStartTeam = 'red';
+                this.currentTurn = 'red';
                 this.stones = [];
                 this.activeStone = null;
                 
@@ -500,7 +474,7 @@
                 this.lastSweepPos = null;
                 this.sweepTimeout = null;
 
-                this.gameState = 'AIMING'; // AIMING, MOVING, ROUND_OVER, GAME_OVER
+                this.gameState = 'AIMING';
 
                 this.initLayout();
                 this.setupInputs();
@@ -508,16 +482,14 @@
             }
 
             initLayout() {
-                // Optimized mobile responsive canvas layout
                 const container = this.canvas.parentElement;
                 const availableW = container ? container.clientWidth - 12 : window.innerWidth - 12;
                 
-                // Dynamisch verfügbare Höhe abzüglich des kompakten Headers berechnen
                 const headerHeight = document.querySelector('header') ? document.querySelector('header').offsetHeight : 120;
                 const availableH = Math.max(360, window.innerHeight - headerHeight - 16);
 
                 let height = availableH;
-                let width = height / 1.7; // Leicht schlankeres Seitenverhältnis für perfekte Handy-Passform
+                let width = height / 1.7;
 
                 if (width > availableW) {
                     width = availableW;
@@ -534,7 +506,6 @@
                     bottom: this.canvas.height - 12
                 };
 
-                // Curling Target / House Center
                 this.houseCenter = {
                     x: this.canvas.width / 2,
                     y: this.bounds.top + (this.canvas.height * 0.22)
@@ -542,9 +513,9 @@
 
                 const baseRadius = Math.min(this.canvas.width, this.canvas.height);
                 this.houseRings = [
-                    { radius: baseRadius * 0.24, points: 1, color: '#3b82f6' }, // Blue outer
-                    { radius: baseRadius * 0.16, points: 2, color: '#ffffff' },  // White middle
-                    { radius: baseRadius * 0.08, points: 3, color: '#ef4444' }   // Red inner
+                    { radius: baseRadius * 0.24, points: 1, color: '#3b82f6' },
+                    { radius: baseRadius * 0.16, points: 2, color: '#ffffff' },
+                    { radius: baseRadius * 0.08, points: 3, color: '#ef4444' }
                 ];
 
                 this.stoneRadius = Math.max(11, Math.floor(this.canvas.width * 0.046));
@@ -565,7 +536,6 @@
                 } else if (this.currentTurn === 'blue' && this.blueStonesLeft > 0) {
                     this.activeStone = new Stone(this.launchPos.x, this.launchPos.y, this.stoneRadius, 'blue', 'blue');
                 } else {
-                    // Turn fallback if one team has no stones left
                     this.currentTurn = this.currentTurn === 'red' ? 'blue' : 'red';
                     this.spawnNextStone();
                     return;
@@ -575,7 +545,6 @@
                 this.gameState = 'AIMING';
                 this.updateUI();
 
-                // If AI turn, trigger automated shoot immediately without delay
                 if (this.vsAI && this.currentTurn === 'blue') {
                     this.triggerAIShoot();
                 }
@@ -610,7 +579,7 @@
                     const pos = getPos(e);
                     const dist = Math.hypot(pos.x - this.activeStone.x, pos.y - this.activeStone.y);
                     
-                    if (dist < this.stoneRadius * 3.5) { // Leicht vergrößerter Trefferbereich für Finger
+                    if (dist < this.stoneRadius * 3.5) {
                         this.isDragging = true;
                         this.dragStart = pos;
                         this.dragCurrent = pos;
@@ -625,7 +594,6 @@
                         this.dragCurrent = pos;
                         if (e.cancelable) e.preventDefault();
                     } else if (this.gameState === 'MOVING') {
-                        // Handle Sweeping mechanic
                         this.handleSweeping(pos);
                         if (e.cancelable) e.preventDefault();
                     }
@@ -641,9 +609,8 @@
                     const pullDist = Math.hypot(dx, dy);
 
                     if (pullDist > 10) {
-                        // Forward flick/drag launches stone forward towards house
                         const power = Math.min(pullDist * 0.045, 14);
-                        const angle = Math.atan2(-dy, -dx); // Directed upwards to the target rings
+                        const angle = Math.atan2(-dy, -dx);
 
                         this.activeStone.vx = Math.cos(angle) * power;
                         this.activeStone.vy = Math.sin(angle) * power;
@@ -662,14 +629,12 @@
                 this.canvas.addEventListener('mousemove', moveHandler);
                 window.addEventListener('mouseup', endHandler);
 
-                // Touch Event Listener mit passive: false für e.preventDefault()
                 this.canvas.addEventListener('touchstart', startHandler, { passive: false });
                 this.canvas.addEventListener('touchmove', moveHandler, { passive: false });
                 window.addEventListener('touchend', endHandler, { passive: false });
             }
 
             handleSweeping(pos) {
-                // Find moving stones ahead of which sweeping can occur
                 const movingStone = this.stones.find(s => s.isLaunched && !s.isStopped && !s.outOfBounds);
                 if (!movingStone) return;
 
@@ -677,19 +642,17 @@
                     const distMoved = Math.hypot(pos.x - this.lastSweepPos.x, pos.y - this.lastSweepPos.y);
                     const distToStone = Math.hypot(pos.x - movingStone.x, pos.y - movingStone.y);
 
-                    // Sweeping in front of moving stone
                     if (distMoved > 8 && distToStone < this.stoneRadius * 4 && pos.y < movingStone.y) {
-                        movingStone.friction = 0.995; // Reduce friction temporarily
+                        movingStone.friction = 0.995;
                         sound.playSweep();
 
-                        // Particle FX
                         for (let i = 0; i < 2; i++) {
                             this.particles.push(new Particle(pos.x + (Math.random() - 0.5) * 20, pos.y + (Math.random() - 0.5) * 10));
                         }
 
                         clearTimeout(this.sweepTimeout);
                         this.sweepTimeout = setTimeout(() => {
-                            movingStone.friction = 0.988; // Restore ice friction
+                            movingStone.friction = 0.988;
                         }, 120);
                     }
                 }
@@ -707,7 +670,6 @@
             triggerAIShoot() {
                 if (!this.activeStone || this.gameState !== 'AIMING') return;
 
-                // Taktische Zielberechnung (Statt aggressiv wegzuschießen)
                 let targetX = this.houseCenter.x;
                 let targetY = this.houseCenter.y;
                 let powerFactor = 1.0;
@@ -715,14 +677,11 @@
                 const opponentStones = this.stones.filter(s => s.team === 'red' && !s.outOfBounds);
                 const aiStones = this.stones.filter(s => s.team === 'blue' && !s.outOfBounds);
 
-                // Taktik 1: Wenn Rot im Zentrum (3er-Zone) liegt, nur sanft touchieren oder platzieren
                 if (opponentStones.length > 0 && aiStones.length === 0) {
-                    // Sanfter Plazierungswurf ins Haus (leicht versetzt zielen)
                     targetX = this.houseCenter.x + (Math.random() < 0.5 ? -15 : 15);
                     targetY = this.houseCenter.y + (Math.random() - 0.5) * 10;
-                    powerFactor = 0.95; // Etwas langsamer/vorsichtiger werfen
+                    powerFactor = 0.95;
                 } else {
-                    // Taktik 2: Taktisch direkt ins Zentrum zielen mit minimaler Streuung
                     targetX += (Math.random() - 0.5) * 8;
                     targetY += (Math.random() - 0.5) * 8;
                     powerFactor = 0.98;
@@ -733,7 +692,6 @@
                 const dist = Math.hypot(dx, dy);
                 const angle = Math.atan2(dy, dx);
 
-                // Sanfte Geschwindigkeitsberechnung für exaktes Ausrollen im Haus
                 const reqSpeed = Math.sqrt(2 * (1 - 0.988) * dist) * 1.82 * powerFactor;
 
                 this.activeStone.vx = Math.cos(angle) * reqSpeed;
@@ -759,30 +717,25 @@
                         const minDist = s1.radius + s2.radius;
 
                         if (dist < minDist) {
-                            // Elastic circle collision physics
                             const angle = Math.atan2(dy, dx);
                             const sin = Math.sin(angle);
                             const cos = Math.cos(angle);
 
-                            // Rotate velocities
                             let vx1 = s1.vx * cos + s1.vy * sin;
                             let vy1 = s1.vy * cos - s1.vx * sin;
                             let vx2 = s2.vx * cos + s2.vy * sin;
                             let vy2 = s2.vy * cos - s2.vx * sin;
 
-                            // Swap velocity along collision axis
                             const temp = vx1;
                             vx1 = vx2;
                             vx2 = temp;
 
-                            // Separate overlapping stones
                             const overlap = (minDist - dist) / 2;
                             s1.x -= cos * overlap;
                             s1.y -= sin * overlap;
                             s2.x += cos * overlap;
                             s2.y += sin * overlap;
 
-                            // Re-rotate velocities back
                             s1.vx = vx1 * cos - vy1 * sin;
                             s1.vy = vy1 * cos + vx1 * sin;
                             s2.vx = vx2 * cos - vy2 * sin;
@@ -798,19 +751,14 @@
             }
 
             update() {
-                // Update stone movement
                 this.stones.forEach(s => s.update(this.bounds));
-
-                // Check elastic collisions
                 this.checkCollisions();
 
-                // Particle update
                 this.particles.forEach((p, index) => {
                     p.update();
                     if (p.life >= p.maxLife) this.particles.splice(index, 1);
                 });
 
-                // Turn progression check when moving
                 if (this.gameState === 'MOVING') {
                     const anyMoving = this.stones.some(s => s.isLaunched && !s.isStopped && !s.outOfBounds);
 
@@ -831,7 +779,6 @@
 
                     const distToCenter = Math.hypot(stone.x - this.houseCenter.x, stone.y - this.houseCenter.y);
                     
-                    // Award score according to target ring radius
                     for (const ring of [...this.houseRings].sort((a, b) => a.radius - b.radius)) {
                         if (distToCenter <= ring.radius) {
                             if (stone.team === 'red') roundRed += ring.points;
@@ -887,6 +834,7 @@
                     btn.onclick = () => {
                         modal.classList.add('hidden');
                         this.currentRound++;
+                        this.roundStartTeam = this.roundStartTeam === 'red' ? 'blue' : 'red';
                         this.resetRound();
                     };
                 }
@@ -898,7 +846,7 @@
                 this.stones = [];
                 this.redStonesLeft = 4;
                 this.blueStonesLeft = 4;
-                this.currentTurn = 'red';
+                this.currentTurn = this.roundStartTeam;
                 this.spawnNextStone();
                 this.updateUI();
             }
@@ -907,26 +855,33 @@
                 this.currentRound = 1;
                 this.redScore = 0;
                 this.blueScore = 0;
+                this.roundStartTeam = 'red';
                 this.resetRound();
             }
 
             updateUI() {
-                document.getElementById('redScore').innerText = this.redScore;
-                document.getElementById('blueScore').innerText = this.blueScore;
-                document.getElementById('roundDisplay').innerText = `${this.currentRound} / ${this.maxRounds}`;
+                const turnIndicator = document.getElementById('turnIndicator');
+                const redCard = document.getElementById('redCard');
+                const blueCard = document.getElementById('blueCard');
+                const roundDisplay = document.getElementById('roundDisplay');
 
-                const turnEl = document.getElementById('turnIndicator');
-                if (turnEl) {
-                    if (this.currentTurn === 'red') {
-                        turnEl.innerText = 'ROT IST DRAN';
-                        turnEl.className = 'mt-0.5 text-[9px] px-1.5 py-0.2 rounded-full bg-red-950 text-red-300 border border-red-700 font-medium';
-                    } else {
-                        turnEl.innerText = this.vsAI ? 'KI DENKT...' : 'BLAU IST DRAN';
-                        turnEl.className = 'mt-0.5 text-[9px] px-1.5 py-0.2 rounded-full bg-blue-950 text-blue-300 border border-blue-700 font-medium';
-                    }
+                if (roundDisplay) {
+                    roundDisplay.innerText = `${this.currentRound} / ${this.maxRounds}`;
                 }
 
-                // Render remaining stones icons
+                document.getElementById('redScore').innerText = this.redScore;
+                document.getElementById('blueScore').innerText = this.blueScore;
+
+                if (this.currentTurn === 'red') {
+                    if (turnIndicator) turnIndicator.innerText = 'ROT IST DRAN';
+                    if (redCard) redCard.className = 'flex flex-col items-start transition-all duration-300 p-0.5 rounded-lg border border-red-500/50 bg-red-950/30 glow-red';
+                    if (blueCard) blueCard.className = 'flex flex-col items-end transition-all duration-300 p-0.5 rounded-lg border border-transparent opacity-60';
+                } else {
+                    if (turnIndicator) turnIndicator.innerText = this.vsAI ? 'KI DENKT...' : 'BLAU IST DRAN';
+                    if (blueCard) blueCard.className = 'flex flex-col items-end transition-all duration-300 p-0.5 rounded-lg border border-blue-500/50 bg-blue-950/30 glow-blue';
+                    if (redCard) redCard.className = 'flex flex-col items-start transition-all duration-300 p-0.5 rounded-lg border border-transparent opacity-60';
+                }
+
                 const renderStonesCount = (containerId, count, colorClass) => {
                     const el = document.getElementById(containerId);
                     if (!el) return;
@@ -942,128 +897,119 @@
 
             drawRink() {
                 const ctx = this.ctx;
-                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                const w = this.canvas.width;
+                const h = this.canvas.height;
 
-                // Ice Rink Surface Gradient
-                const iceGrad = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-                iceGrad.addColorStop(0, '#0f1d3a');
-                iceGrad.addColorStop(0.5, '#1e293b');
-                iceGrad.addColorStop(1, '#0f172a');
+                const iceGrad = ctx.createLinearGradient(0, 0, 0, h);
+                iceGrad.addColorStop(0, '#e0f2fe');
+                iceGrad.addColorStop(0.5, '#f0f9ff');
+                iceGrad.addColorStop(1, '#bae6fd');
                 ctx.fillStyle = iceGrad;
-                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                ctx.fillRect(0, 0, w, h);
 
-                // Ice Texture Overlay Lines
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
                 ctx.lineWidth = 1;
-                for (let y = 0; y < this.canvas.height; y += 15) {
+                for (let y = 0; y < h; y += 15) {
                     ctx.beginPath();
                     ctx.moveTo(0, y);
-                    ctx.lineTo(this.canvas.width, y);
+                    ctx.lineTo(w, y);
                     ctx.stroke();
                 }
 
-                // Center Line
-                ctx.strokeStyle = 'rgba(239, 68, 68, 0.35)';
+                ctx.strokeStyle = '#0284c7';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(this.bounds.left, this.bounds.top, this.bounds.right - this.bounds.left, this.bounds.bottom - this.bounds.top);
+
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(this.canvas.width / 2, 0);
-                ctx.lineTo(this.canvas.width / 2, this.canvas.height);
+                ctx.moveTo(w / 2, this.bounds.top);
+                ctx.lineTo(w / 2, this.bounds.bottom);
                 ctx.stroke();
 
-                // Hog Line
-                ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(this.bounds.left, this.bounds.bottom - 90);
-                ctx.lineTo(this.bounds.right, this.bounds.bottom - 90);
-                ctx.stroke();
-
-                // House Target Concentric Rings
                 this.houseRings.forEach(ring => {
                     ctx.beginPath();
                     ctx.arc(this.houseCenter.x, this.houseCenter.y, ring.radius, 0, Math.PI * 2);
                     ctx.fillStyle = ring.color;
-                    ctx.globalAlpha = 0.35;
                     ctx.fill();
-                    ctx.globalAlpha = 1.0;
-                    ctx.strokeStyle = ring.color;
-                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                    ctx.lineWidth = 1.5;
                     ctx.stroke();
                 });
 
-                // Center Button Dot
                 ctx.beginPath();
-                ctx.arc(this.houseCenter.x, this.houseCenter.y, 4, 0, Math.PI * 2);
+                ctx.arc(this.houseCenter.x, this.houseCenter.y, this.stoneRadius * 0.4, 0, Math.PI * 2);
                 ctx.fillStyle = '#ffffff';
                 ctx.fill();
+
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(this.bounds.left, this.houseCenter.y + this.houseRings[0].radius + 20);
+                ctx.lineTo(this.bounds.right, this.houseCenter.y + this.houseRings[0].radius + 20);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(this.bounds.left, this.launchPos.y);
+                ctx.lineTo(this.bounds.right, this.launchPos.y);
+                ctx.stroke();
             }
 
-            draw() {
+            render() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
                 this.drawRink();
-
-                // Draw Sweeping Particles
                 this.particles.forEach(p => p.draw(this.ctx));
-
-                // Draw Curling Stones
                 this.stones.forEach(stone => stone.draw(this.ctx));
-            }
 
-            gameLoop() {
                 this.update();
-                this.draw();
-                requestAnimationFrame(() => this.gameLoop());
+                requestAnimationFrame(() => this.render());
             }
         }
 
-        // Window Init Execution
-        window.addEventListener('load', () => {
+        window.onload = () => {
             const canvas = document.getElementById('gameCanvas');
             const game = new GameEngine(canvas);
+            game.render();
 
-            // Responsive Window Resize Handler
-            window.addEventListener('resize', () => {
-                game.initLayout();
-            });
+            const pvpBtn = document.getElementById('modePvP');
+            const aiBtn = document.getElementById('modeAI');
 
-            // Start Animation Frame Loop
-            game.gameLoop();
-
-            // Setup Mode Buttons
-            const modePvP = document.getElementById('modePvP');
-            const modeAI = document.getElementById('modeAI');
-
-            modePvP.addEventListener('click', () => {
+            pvpBtn.addEventListener('click', () => {
                 game.vsAI = false;
-                modePvP.className = 'py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-cyan-600 text-white border-cyan-400 shadow-md';
-                modeAI.className = 'py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700';
+                pvpBtn.className = "py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-cyan-600 text-white border-cyan-400 shadow-md";
+                aiBtn.className = "py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700";
                 document.getElementById('blueName').innerText = 'BLAU';
                 game.fullReset();
             });
 
-            modeAI.addEventListener('click', () => {
+            aiBtn.addEventListener('click', () => {
                 game.vsAI = true;
-                modeAI.className = 'py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-cyan-600 text-white border-cyan-400 shadow-md';
-                modePvP.className = 'py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700';
+                aiBtn.className = "py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-cyan-600 text-white border-cyan-400 shadow-md";
+                pvpBtn.className = "py-1 px-2 rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 border transition bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700";
                 document.getElementById('blueName').innerText = 'KI';
                 game.fullReset();
             });
 
-            // Reset Button Handler
-            document.getElementById('resetBtn').addEventListener('click', () => {
-                game.fullReset();
-            });
+            document.getElementById('resetBtn').addEventListener('click', () => game.fullReset());
 
-            // Sound Toggle Handler
-            document.getElementById('soundBtn').addEventListener('click', () => {
+            const soundBtn = document.getElementById('soundBtn');
+            const soundIcon = document.getElementById('soundIcon');
+            soundBtn.addEventListener('click', () => {
                 sound.enabled = !sound.enabled;
-                const soundIcon = document.getElementById('soundIcon');
                 if (sound.enabled) {
-                    soundIcon.className = 'fa-solid fa-volume-high text-yellow-400 text-[9px]';
+                    soundIcon.className = "fa-solid fa-volume-high text-yellow-400 text-[9px]";
                 } else {
-                    soundIcon.className = 'fa-solid fa-volume-xmark text-slate-500 text-[9px]';
+                    soundIcon.className = "fa-solid fa-volume-xmark text-slate-400 text-[9px]";
                 }
             });
-        });
+
+            window.addEventListener('resize', () => {
+                game.initLayout();
+            });
+        };
     </script>
 </body>
 </html>
